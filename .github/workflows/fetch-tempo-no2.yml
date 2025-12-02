@@ -1,8 +1,6 @@
 name: Fetch TEMPO NO2 .nc file
 
 on:
-  schedule:
-    - cron: '0 * * * *'   # 每小時整點 (UTC)
   workflow_dispatch:
 
 concurrency:
