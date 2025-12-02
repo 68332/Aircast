@@ -35,11 +35,15 @@ jobs:
           git rev-parse --abbrev-ref HEAD
           ls -la
           ls -la scripts || true
+
       # 2) 系統層的 GDAL
       - name: Install GDAL
         run: |
           sudo apt-get update
           sudo apt-get install -y gdal-bin libgdal-dev
+          # 裝完就把 apt cache 清掉，省空間
+          sudo rm -rf /var/lib/apt/lists/*
+
       # 3) Python 3.11 + 套件
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -49,8 +53,10 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r scripts/requirements.txt
+          # 不用 pip cache，避免佔空間
+          pip install --no-cache-dir -r scripts/requirements.txt
           python -c "import rasterio, sys; print('rasterio OK:', rasterio.__version__)"
+
       # 4) 執行抓取＋產生 tiles（輸出到 ${OUTPUT_DIR}）
       - name: Run fetch script
         env:
@@ -62,6 +68,16 @@ jobs:
           echo "---- List OUTPUT ----"
           ls -R "${OUTPUT_DIR}" || true
           pwd
+
+      # 4.5) 清掉大檔 / 暫存檔（你可以依實際路徑再補）
+      - name: Cleanup temp files
+        run: |
+          echo "Cleaning large temp files..."
+          # 刪掉所有 NetCDF 原始檔（如果只在特定資料夾，也可以縮小範圍）
+          find . -name '*.nc' -type f -delete || true
+          # 如果你的 script 有用到 tmp/cache 之類的資料夾，照實加上
+          rm -rf tmp/ .tmp/ cache/ || true
+
       # 5) 第二次 checkout：把 gh-pages 取到子資料夾 gh-pages/
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -78,6 +94,7 @@ jobs:
           rsync -av ../public/tempo/tiles /home/runner/work/Aircast/Aircast/gh-pages/tempo/
           echo "---- List gh-pages/tempo ----"
           ls -R gh-pages/tempo || true
+
       # 7) 提交 & 推送 gh-pages
       - name: Commit & push to gh-pages
         working-directory: gh-pages
@@ -86,4 +103,4 @@ jobs:
           git config user.email "actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "chore: refresh TEMPO assets" || echo "No changes"
-          git push origin gh-pages
+          git push origin gh-pagesㄇ
